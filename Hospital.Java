@@ -85,15 +85,15 @@ class Doctor extends Thread {
 
 public class Hospital {
     private int waitingRoomCapacity;
-    private int numberOfDoctors;
-    private int numberOfPatients;
+    private int numOfDoctors;
+    private int numOfPatients;
 
     private Buffer waitingRoom;
     private Semaphore treatmentRooms;
     private AtomicInteger completedPatients=new AtomicInteger(0);
     private Random random=new Random();
 
-    public Hospital(int waitingRoomCapacity, int numberOfDoctors, int numberOfPatients) {
+    public Hospital(int waitingRoomCapacity, int numOfDoctors, int numOfPatients) {
     }
 
     public void patientArrive(Patient p) {
