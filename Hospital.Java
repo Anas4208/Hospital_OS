@@ -6,23 +6,53 @@ class Semaphore {
     protected int value=0;
 
     public Semaphore() {
+        value=0;
     }
 
-    public Semaphore(int initial) {
+    public Semaphore(int n) {
+        value=n;
     }
 
     public synchronized void P() {
+        value--;
+        if(value<0){
+            try {wait();} catch (InterruptedException e) {}
+        }
     }
 
     public synchronized boolean P(long timeout) {
-        return false;
+        value--;
+        if (value<0){
+            long beginTime=System.currentTimeMillis();
+            long passedTime=0;
+            try{
+                while(value<0){
+                    long remainingTime=timeout-passedTime;
+                    if(remainingTime<=0){
+                        value++;
+                        return false;
+                    }
+                    wait(remainingTime);
+                    passedTime=System.currentTimeMillis()-beginTime;
+
+                }
+            }
+            catch(InterruptedException e) {
+                value++;
+                Thread.currentThread().interrupt();
+                return false;
+            }
+        }
+        return true;
     }
 
     public synchronized void V() {
+        value++;
+        if (value<=0) notify();
     }
 
     public synchronized int getValue() {
-        return 0;
+        return value;
     }
 }
 
