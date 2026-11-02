@@ -3,54 +3,55 @@ import java.util.Scanner;
 import java.util.concurrent.atomic.AtomicInteger;
 
 class Semaphore {
-    protected int value = 0;
+    protected int value=0;
 
     public Semaphore() {
-        value = 0;
+        value=0;
     }
 
     public Semaphore(int n) {
-        value = n;
+        value=n;
     }
 
     public synchronized void P() {
         value--;
-        if (value < 0) {
+        while (value<0) {
             try {
                 wait();
             } catch (InterruptedException e) {
+                value++;
+                Thread.currentThread().interrupt();
+                return;
             }
         }
     }
 
     public synchronized boolean P(long timeout) {
+        long startTime = System.currentTimeMillis();
         value--;
-        if (value < 0) {
-            long beginTime = System.currentTimeMillis();
-            long passedTime = 0;
+    
+        while (value < 0) {
+            long remainingTime=timeout-(System.currentTimeMillis()-startTime);
+    
+            if (remainingTime<=0) {
+                value++;
+                return false;
+            }
             try {
-                while (value < 0) {
-                    long remainingTime = timeout - passedTime;
-                    if (remainingTime <= 0) {
-                        value++;
-                        return false;
-                    }
-                    wait(remainingTime);
-                    passedTime = System.currentTimeMillis() - beginTime;
-
-                }
+                wait(remainingTime);
             } catch (InterruptedException e) {
                 value++;
                 Thread.currentThread().interrupt();
                 return false;
             }
         }
+    
         return true;
     }
 
     public synchronized void V() {
         value++;
-        if (value <= 0)
+        if (value<=0)
             notify();
     }
 
@@ -74,18 +75,29 @@ class Buffer {
         elements = new Semaphore(0);
     }
 
-    public void produce(Object value) {
-        spaces.P();
-        store[inptr] = value;
-        inptr = (inptr + 1) % size;
+    public void produce(Patient p) {
+        synchronized(this) {
+            if (spaces.getValue() <= 0) {
+                System.out.println("The waiting room is full.");
+                System.out.println("P" + p.getPatientId() + " is waiting outside for an available seat.");
+            }
+        }  
+        spaces.P(); 
+        synchronized(this) {
+            store[inptr] = p;
+            inptr = (inptr + 1) % size;
+        }
+        System.out.println("P" + p.getPatientId() + " entered the waiting room.");
         elements.V();
     }
 
     public Object consume() {
         Object value;
         elements.P();
-        value = store[outptr];
-        outptr = (outptr + 1) % size;
+        synchronized(this) {
+            value = store[outptr];
+            outptr = (outptr + 1) % size;
+        }
         spaces.V();
         return value;
     }
@@ -130,12 +142,13 @@ class Doctor extends Thread {
                     try {
                         Thread.sleep(1000 + hospital.getRandom().nextInt(1000));
                     } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
                         break;
+                    } finally {
+                        hospital.getTreatmentRooms().V();
+                        System.out.println("Doctor " + id + " released the treatment room.");
                     }
                     System.out.println("Doctor " + id + " finished treating P" + p.getPatientId() + ".");
-
-                    hospital.getTreatmentRooms().V();
-                    System.out.println("Doctor " + id + " released the treatment room.");
                     System.out.println("Doctor " + id + " is now available.");
 
                     System.out.println("P" + p.getPatientId() + " left.");
@@ -151,13 +164,6 @@ class Doctor extends Thread {
                     System.out.println("Doctor " + id + " could not acquire a treatment room.");
                     System.out.println(
                             "Doctor " + id + " is sending P" + p.getPatientId() + " back to the waiting room.");
-
-                    synchronized (hospital.getWaitingRoom()) {
-                        if (hospital.getWaitingRoom().getSpacesValue() <= 0) {
-                            System.out.println("The waiting room is full.");
-                            System.out.println("P" + p.getPatientId() + " is waiting outside for an available seat.");
-                        }
-                    }
                     hospital.getWaitingRoom().produce(p);
                     System.out.println("P" + p.getPatientId() + " entered the waiting room.");
                 }
@@ -230,11 +236,6 @@ public class Hospital {
 
     public void patientArrive(Patient p) {
         System.out.println("P" + p.getPatientId() + " arrived.");
-
-        if(waitingRoom.getSpacesValue() == 0){
-            System.out.println("The waiting room is full.");
-            System.out.println("P" + p.getPatientId() + " is waiting outside for an available seat.");
-        }
         waitingRoom.produce(p);
         System.out.println("P" + p.getPatientId() + " entered the waiting room.");
     }
@@ -276,6 +277,11 @@ public class Hospital {
 
         System.out.print("Enter number of patients: ");
         int numOfPatients = scanner.nextInt();
+
+        if (capacity <= 0 || numOfDoctors <= 0 || numOfPatients <= 0) {
+            System.out.println("All inputs must be greater than zero.");
+            return;
+        }
 
         new Hospital(capacity, numOfDoctors, numOfPatients);
 
