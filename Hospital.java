@@ -14,45 +14,36 @@ class Semaphore {
     }
 
     public synchronized void P() {
-        value--;
-        while (value<0) {
+        while (value<=0) {
             try {
                 wait();
             } catch (InterruptedException e) {
-                value++;
                 Thread.currentThread().interrupt();
                 return;
             }
         }
+        value--;
     }
 
     public synchronized boolean P(long timeout) {
-        long startTime = System.currentTimeMillis();
-        value--;
-    
-        while (value < 0) {
-            long remainingTime=timeout-(System.currentTimeMillis()-startTime);
-    
-            if (remainingTime<=0) {
-                value++;
-                return false;
-            }
+        long deadline= System.currentTimeMillis()+timeout;
+        while (value<=0) {
+            long remaining=deadline-System.currentTimeMillis();
+            if ( remaining<=0) return false;
             try {
-                wait(remainingTime);
+                wait(remaining);
             } catch (InterruptedException e) {
-                value++;
                 Thread.currentThread().interrupt();
                 return false;
             }
         }
-    
+        value--;
         return true;
     }
 
     public synchronized void V() {
         value++;
-        if (value<=0)
-            notify();
+        notifyAll();
     }
 
     public synchronized int getValue() {
@@ -165,7 +156,6 @@ class Doctor extends Thread {
                     System.out.println(
                             "Doctor " + id + " is sending P" + p.getPatientId() + " back to the waiting room.");
                     hospital.getWaitingRoom().produce(p);
-                    System.out.println("P" + p.getPatientId() + " entered the waiting room.");
                 }
             } catch (Exception e) {
                 break;
@@ -237,7 +227,6 @@ public class Hospital {
     public void patientArrive(Patient p) {
         System.out.println("P" + p.getPatientId() + " arrived.");
         waitingRoom.produce(p);
-        System.out.println("P" + p.getPatientId() + " entered the waiting room.");
     }
 
     public void incrementCompleted() {
