@@ -148,26 +148,26 @@ public class Hospital {
     public static void main(String[] args) {
     }
 }
-class Doctor extends Thread {
+class Doctor extends Thread{
     private int id;
     private Hospital hospital;
     private volatile boolean running = true;
 
-    public Doctor(int id, Hospital hospital) {
-        this.id = id;
-        this.hospital = hospital;
+    public Doctor(int id, Hospital hospital){
+        this.id=id;
+        this.hospital=hospital;
     }
 
-    public int getDoctorId() {
+    public int getDoctorId(){
         return id;
     }
 
     @Override
-    public void run() {
+    public void run(){
         while (running && hospital.getCompletedPatientsCount() < hospital.getNumOfPatients()) {
-            try {
+            try{
                 Object obj = hospital.getWaitingRoom().consume();
-                if (obj == null) break;
+                if(obj==null) break;
                 Patient p = (Patient) obj;
 
                 System.out.println("Doctor " + id + " is assigned to P" + p.getPatientId() + ".");
@@ -175,28 +175,28 @@ class Doctor extends Thread {
 
                 boolean acquired = hospital.getTreatmentRooms().P(3000);
 
-                if (acquired) {
+                if(acquired){
                     System.out.println("Doctor " + id + " acquired a treatment room.");
                     System.out.println("Doctor " + id + " begins treating P" + p.getPatientId() + ".");
+                    
 
-                    try {
+                    try{
                         Thread.sleep(1000 + hospital.getRandom().nextInt(1000));
-                    } catch (InterruptedException e) {
+                    }catch(InterruptedException e){
                         break;
                     }
-
                     System.out.println("Doctor " + id + " finished treating P" + p.getPatientId() + ".");
-                    
+
                     hospital.getTreatmentRooms().V();
                     System.out.println("Doctor " + id + " released the treatment room.");
                     System.out.println("Doctor " + id + " is now available.");
 
                     hospital.incrementCompleted();
-                } else {
+                }else{
                     System.out.println("Doctor " + id + " could not acquire a treatment room.");
                     System.out.println("Doctor " + id + " is sending P" + p.getPatientId() + " back to the waiting room.");
 
-                    synchronized (hospital.getWaitingRoom()) {
+                    synchronized ( hospital.getWaitingRoom()){
                         if (hospital.getWaitingRoom().getSpacesValue() <= 0) {
                             System.out.println("The waiting room is full.");
                             System.out.println("P" + p.getPatientId() + " is waiting outside for an available seat.");
@@ -215,23 +215,23 @@ class Doctor extends Thread {
         running = false;
         this.interrupt();
     }
-}
+    }
+    
+    class Patient extends Thread{
+        private int id;
+        private Hospital hospital;
 
-class Patient extends Thread {
-    private int id;
-    private Hospital hospital;
+        public Patient(int id, Hospital hospital){
+            this.id = id;
+            this.hospital = hospital;
+        }
+        public int getPatientId(){
+            return id;
+        }
 
-    public Patient(int id, Hospital hospital) {
-        this.id = id;
-        this.hospital = hospital;
+        @Override
+        public void run(){
+            hospital.patientArrive(this);
+        }
     }
 
-    public int getPatientId() {
-        return id;
-    }
-
-    @Override
-    public void run() {
-        hospital.patientArrive(this);
-    }
-}
